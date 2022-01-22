@@ -1,0 +1,15 @@
+.venv
+.cache
+.config
+.jupyter
+.local
+.nv
+.ssh
+data
+datasets
+debug_notebook
+model_output
+transformers
+.bash_history
+.python_history
+__pycache__
