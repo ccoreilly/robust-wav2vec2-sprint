@@ -1,11 +1,11 @@
-export CUDA_VISIBLE_DEVICES="0,1"
+export CUDA_VISIBLE_DEVICES="0,1,2"
 
-python train.py \
+python -m torch.distributed.launch --nproc_per_node=3 train.py \
 	--dataset_path="data/out" \
     --audio_column_name="wav_filename" \
     --text_column_name="transcript" \
 	--model_name_or_path="facebook/wav2vec2-xls-r-1b" \
-	--output_dir="./model_output" \
+	--output_dir="./model" \
 	--overwrite_output_dir \
 	--evaluation_strategy="steps" \
 	--length_column_name="input_length" \
@@ -13,14 +13,15 @@ python train.py \
 	--fp16 \
 	--group_by_length \
 	--num_train_epochs="10" \
-	--per_device_train_batch_size="64" \
-	--per_device_eval_batch_size="64" \
+	--per_device_train_batch_size="6" \
+	--per_device_eval_batch_size="6" \
 	--gradient_accumulation_steps="4" \
 	--learning_rate="3e-4" \
-	--warmup_steps="2000" \
+	--warmup_steps="1000" \
 	--save_steps="1000" \
-	--eval_steps="5000" \
-	--logging_steps="5000" \
+	--eval_steps="1000" \
+	--preprocessing_num_workers="$(nproc)" \
+	--logging_steps="2000" \
 	--layerdrop="0.0" \
 	--activation_dropout="0.1" \
 	--save_total_limit="3" \

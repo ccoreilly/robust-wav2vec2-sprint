@@ -315,10 +315,11 @@ def create_vocabulary_from_data(
 ):
     # Given training and test labels create vocabulary
     def extract_all_chars(batch):
-        all_text = " ".join(batch["target_text"])
+        all_text = " ".join(batch["transcript"])
         vocab = list(set(all_text))
         return {"vocab": [vocab], "all_text": [all_text]}
 
+    print("extract chars")
     vocabs = datasets.map(
         extract_all_chars,
         batched=True,
@@ -328,6 +329,7 @@ def create_vocabulary_from_data(
     )
 
     # take union of all unique characters in each dataset
+    print("make vocab_set")
     vocab_set = functools.reduce(
         lambda vocab_1, vocab_2: set(vocab_1["vocab"][0]) | set(vocab_2["vocab"][0]), vocabs.values()
     )
@@ -410,9 +412,7 @@ def main():
     raw_datasets = DatasetDict()
 
     if data_args.dataset_path:
-        raw_datasets = load_dataset("csv", data_files={"train": os.path.join(data_args.dataset_path, "train.csv"), "eval": os.path.join(data_args.dataset_path, "eval.csv")})
-        raw_datasets['train'] = raw_datasets['train'].map(speech_file_to_array_fn, fn_kwargs={"dataset_path": data_args.dataset_path})
-        raw_datasets['eval'] = raw_datasets['eval'].map(speech_file_to_array_fn, fn_kwargs={"dataset_path": data_args.dataset_path})
+        raw_datasets = load_dataset("csv", data_files={"train": os.path.join(data_args.dataset_path, "train-all.csv"), "eval": os.path.join(data_args.dataset_path, "eval-all.csv")})
 
     if training_args.do_train:
         if raw_datasets["train"] is None:
@@ -456,29 +456,6 @@ def main():
         
         raw_datasets["eval"] = raw_datasets["eval"].sort('wav_filesize', reverse=True)
 
-    # 2. We remove some special characters from the datasets
-    # that make training complicated and do not help in transcribing the speech
-    # E.g. characters, such as `,` and `.` do not really have an acoustic characteristic
-    # that could be easily picked up by the model
-    chars_to_ignore_regex = (
-        f'[{"".join(data_args.chars_to_ignore)}]' if data_args.chars_to_ignore is not None else None
-    )
-    text_column_name = data_args.text_column_name
-
-    def remove_special_characters(batch):
-        if chars_to_ignore_regex is not None:
-            batch["target_text"] = re.sub(chars_to_ignore_regex, "", batch[text_column_name]).lower() + " "
-        else:
-            batch["target_text"] = batch[text_column_name].lower() + " "
-        return batch
-
-    with training_args.main_process_first(desc="dataset map special characters removal"):
-        raw_datasets = raw_datasets.map(
-            remove_special_characters,
-            remove_columns=[text_column_name],
-            desc="remove special characters from datasets",
-        )
-
     # save special tokens for tokenizer
     word_delimiter_token = data_args.word_delimiter_token
     unk_token = data_args.unk_token
@@ -509,6 +486,7 @@ def main():
                 os.remove(vocab_file)
 
         with training_args.main_process_first(desc="dataset map vocabulary creation"):
+            print("creating vocab")
             if not os.path.isfile(vocab_file):
                 os.makedirs(tokenizer_name_or_path, exist_ok=True)
                 vocab_dict = create_vocabulary_from_data(
@@ -584,20 +562,17 @@ def main():
     # via the `feature_extractor`
 
     # make sure that dataset decodes audio with correct sampling rate
-    dataset_sampling_rate = next(iter(raw_datasets.values())).features[data_args.audio_column_name]["sampling_rate"]
-    if dataset_sampling_rate != feature_extractor.sampling_rate and False:
-        raw_datasets = raw_datasets.cast_column(
-            data_args.audio_column_name, datasets.features.Audio(sampling_rate=feature_extractor.sampling_rate)
-        )
+
 
     # derive max & min input length for sample rate & max duration
-    max_input_length = data_args.max_duration_in_seconds * feature_extractor.sampling_rate
-    min_input_length = data_args.min_duration_in_seconds * feature_extractor.sampling_rate
     audio_column_name = data_args.audio_column_name
     num_workers = data_args.preprocessing_num_workers
 
     # `phoneme_language` is only relevant if the model is fine-tuned on phoneme classification
     phoneme_language = data_args.phoneme_language
+
+    raw_datasets['train'] = raw_datasets['train'].map(speech_file_to_array_fn, num_proc=num_workers, fn_kwargs={"dataset_path": data_args.dataset_path})
+    raw_datasets['eval'] = raw_datasets['eval'].map(speech_file_to_array_fn, num_proc=num_workers, fn_kwargs={"dataset_path": data_args.dataset_path})
 
     # Preprocessing the datasets.
     # We need to read the audio files as arrays and tokenize the targets.
@@ -614,8 +589,10 @@ def main():
         if phoneme_language is not None:
             additional_kwargs["phonemizer_lang"] = phoneme_language
 
-        batch["labels"] = tokenizer(batch["target_text"], **additional_kwargs).input_ids
+        batch["labels"] = tokenizer(batch["transcript"], **additional_kwargs).input_ids
         return batch
+
+    print(f"Vectorizing")
 
     with training_args.main_process_first(desc="dataset map preprocessing"):
         vectorized_datasets = raw_datasets.map(
@@ -623,16 +600,6 @@ def main():
             remove_columns=next(iter(raw_datasets.values())).column_names,
             num_proc=num_workers,
             desc="preprocess datasets",
-        )
-
-        def is_audio_in_length_range(length):
-            return length > min_input_length and length < max_input_length
-
-        # filter data that is shorter than min_input_length
-        vectorized_datasets = vectorized_datasets.filter(
-            is_audio_in_length_range,
-            num_proc=num_workers,
-            input_columns=["input_length"],
         )
 
     # 7. Next, we can prepare the training.
