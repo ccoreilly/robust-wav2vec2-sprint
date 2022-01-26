@@ -14,20 +14,23 @@ torchrun --nproc_per_node 3 train.py \
 	--num_train_epochs="4" \
 	--per_device_train_batch_size="8" \
 	--per_device_eval_batch_size="8" \
-	--gradient_accumulation_steps="1" \
+	--gradient_accumulation_steps="2" \
 	--learning_rate="3e-5" \
 	--warmup_steps="1000" \
 	--save_steps="1000" \
 	--eval_steps="1000" \
-	--preprocessing_num_workers="25" \
+    --ignore_data_skip \
+	--preprocessing_num_workers="13" \
 	--logging_steps="300" \
-	--layerdrop="0.0" \
+	--layerdrop="0.1" \
 	--activation_dropout="0.1" \
+    --hidden_dropout="0.1" \
 	--save_total_limit="3" \
 	--freeze_feature_encoder \
 	--feat_proj_dropout="0.0" \
-	--mask_time_prob="0.3" \
+	--mask_time_prob="0.05" \
 	--mask_time_length="10" \
 	--mask_feature_prob="0.1" \
 	--mask_feature_length="64" \
-	--do_train --do_eval &> train2.log
+	--ctc_loss_reduction="mean" \
+	--do_train --do_eval &> train3.log

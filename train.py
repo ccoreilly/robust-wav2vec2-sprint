@@ -372,6 +372,14 @@ def main():
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
+    # Setup logging
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+    logger.setLevel(logging.INFO if is_main_process(training_args.local_rank) else logging.WARN)
+
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
@@ -386,14 +394,6 @@ def main():
                 f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
                 "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
             )
-
-    # Setup logging
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
-    logger.setLevel(logging.INFO if is_main_process(training_args.local_rank) else logging.WARN)
 
     # Log on each process the small summary:
     logger.warning(
@@ -412,7 +412,7 @@ def main():
     raw_datasets = DatasetDict()
 
     if data_args.dataset_path:
-        raw_datasets = load_dataset("csv", data_files={"train": os.path.join(data_args.dataset_path, "train-all.csv"), "eval": os.path.join(data_args.dataset_path, "eval-all.csv")})
+        raw_datasets = load_dataset("csv", data_files={"train": os.path.join(data_args.dataset_path, "train-shuf.csv"), "eval": os.path.join(data_args.dataset_path, "eval-shuf.csv")})
 
     if training_args.do_train:
         if raw_datasets["train"] is None:
