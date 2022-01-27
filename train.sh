@@ -6,6 +6,7 @@ torchrun --nproc_per_node 3 train.py \
     --text_column_name="transcript" \
 	--model_name_or_path="facebook/wav2vec2-xls-r-1b" \
 	--output_dir="./model" \
+    --overwrite_output_dir \
 	--evaluation_strategy="steps" \
 	--length_column_name="input_length" \
 	--gradient_checkpointing \
@@ -14,8 +15,8 @@ torchrun --nproc_per_node 3 train.py \
 	--num_train_epochs="4" \
 	--per_device_train_batch_size="8" \
 	--per_device_eval_batch_size="8" \
-	--gradient_accumulation_steps="2" \
-	--learning_rate="3e-5" \
+	--gradient_accumulation_steps="1" \
+	--learning_rate="1e-3" \
 	--warmup_steps="1000" \
 	--save_steps="1000" \
 	--eval_steps="1000" \
@@ -28,9 +29,10 @@ torchrun --nproc_per_node 3 train.py \
 	--save_total_limit="3" \
 	--freeze_feature_encoder \
 	--feat_proj_dropout="0.0" \
-	--mask_time_prob="0.05" \
+	--mask_time_prob="0.3" \
 	--mask_time_length="10" \
 	--mask_feature_prob="0.1" \
 	--mask_feature_length="64" \
 	--ctc_loss_reduction="mean" \
+	--ddp_find_unused_parameters=1 \
 	--do_train --do_eval &> train3.log
