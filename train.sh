@@ -16,11 +16,10 @@ torchrun --nproc_per_node 3 train.py \
 	--per_device_train_batch_size="8" \
 	--per_device_eval_batch_size="8" \
 	--gradient_accumulation_steps="1" \
-	--learning_rate="1e-3" \
+	--learning_rate="3e-3" \
 	--warmup_steps="1000" \
 	--save_steps="1000" \
 	--eval_steps="1000" \
-    --ignore_data_skip \
 	--preprocessing_num_workers="13" \
 	--logging_steps="300" \
 	--layerdrop="0.1" \
@@ -33,6 +32,4 @@ torchrun --nproc_per_node 3 train.py \
 	--mask_time_length="10" \
 	--mask_feature_prob="0.1" \
 	--mask_feature_length="64" \
-	--ctc_loss_reduction="mean" \
-	--ddp_find_unused_parameters=1 \
 	--do_train --do_eval &> train3.log
